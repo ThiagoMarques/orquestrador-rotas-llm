@@ -1,6 +1,6 @@
 # Orquestrador Rotas LLM
 
-Projeto base para um orquestrador de rotas com frontend em Vue.js, backend em Python (FastAPI) e banco de dados PostgreSQL. Este repositório inicia pelo backend, já com autenticação de usuários e configuração via Docker.
+Projeto base para um orquestrador de rotas com frontend em Vue.js, backend em Python (FastAPI) e banco de dados PostgreSQL.
 
 ## Pré-requisitos
 
