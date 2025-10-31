@@ -18,15 +18,30 @@ Projeto base para um orquestrador de rotas com frontend em Vue.js, backend em Py
 cp env.example .env
 ```
 
+## Variáveis de ambiente
+
+- Copie `env.example` para `.env` na raiz do projeto para configurar backend, banco de dados e pgAdmin.
+- No frontend, utilize o arquivo `frontend/.env.example` como base e ajuste a variável `VITE_API_BASE_URL` caso necessário (há um arquivo `frontend/.env.development` pré-configurado para uso local).
+
+```bash
+cp env.example .env
+cp frontend/.env.example frontend/.env.local # opcional, para sobrescrever valores locais
+```
+
 ## Executando a stack
 
 ```bash
 docker compose up --build
 ```
 
+- Frontend disponível em `http://localhost:5173`
 - API disponível em `http://localhost:8000`
 - Documentação automática (Swagger) em `http://localhost:8000/docs`
 - pgAdmin disponível em `http://localhost:5050` (use `PGADMIN_DEFAULT_EMAIL` e `PGADMIN_DEFAULT_PASSWORD` definidos no `.env`).
+
+## Primeira tela de login
+
+O frontend inicia com uma tela de login que consome o endpoint `POST /api/auth/login`. Informe e-mail e senha de um usuário previamente cadastrado (via endpoint `POST /api/auth/register`). Em caso de sucesso, o token JWT é armazenado em `localStorage` para uso futuro.
 
 ## Endpoints iniciais
 
