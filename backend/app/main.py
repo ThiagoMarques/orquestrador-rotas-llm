@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import models
 from .config import settings
 from .database import Base, engine
-from .routers import auth
+from .routers import auth, cities
 
 
 def create_app() -> FastAPI:
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(auth.router)
+    app.include_router(cities.router)
 
     @app.get("/api/health", tags=["health"])
     async def health_check():

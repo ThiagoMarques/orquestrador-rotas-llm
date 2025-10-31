@@ -40,3 +40,25 @@ class HomeResponse(BaseModel):
     message: str
     email: EmailStr
 
+
+class CityBase(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    state: str = Field(min_length=2, max_length=2)
+
+
+class CityCreate(CityBase):
+    pass
+
+
+class CityUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    state: Optional[str] = Field(default=None, min_length=2, max_length=2)
+
+
+class CityRead(CityBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+

@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { createCity, deleteCity, listCities, updateCity } from '../services/cities'
 import { getCurrentUser } from '../services/user'
 
 const router = useRouter()
@@ -11,11 +12,15 @@ const user = ref(null)
 const loading = ref(true)
 const errorMessage = ref('')
 
-const favoriteCities = ref([
-  { name: 'Brasília', uf: 'DF', addedAt: '10/03/2025' },
-  { name: 'São Paulo', uf: 'SP', addedAt: '05/03/2025' },
-  { name: 'Rio de Janeiro', uf: 'RJ', addedAt: '22/02/2025' },
-])
+const cities = ref([])
+const citiesLoading = ref(true)
+const cityDialog = ref(false)
+const cityFormRef = ref(null)
+const cityFormLoading = ref(false)
+const cityForm = reactive({ id: null, name: '', state: '' })
+const deleteDialog = ref(false)
+const cityToDelete = ref(null)
+const snackbar = reactive({ show: false, text: '', color: 'success' })
 
 const plannedRoutes = ref([
   { from: 'Brasília', to: 'Ribeirão Preto', date: '12/04/2025', status: 'Confirmada' },
@@ -47,6 +52,127 @@ const handleAuthError = () => {
   router.push({ name: 'Login', query: { redirect: route.fullPath } })
 }
 
+const resetCityForm = () => {
+  cityForm.id = null
+  cityForm.name = ''
+  cityForm.state = ''
+}
+
+const openCreateCity = () => {
+  resetCityForm()
+  cityDialog.value = true
+}
+
+const openEditCity = (city) => {
+  cityForm.id = city.id
+  cityForm.name = city.name
+  cityForm.state = city.state
+  cityDialog.value = true
+}
+
+const submitCityForm = async () => {
+  const validation = await cityFormRef.value?.validate?.()
+  if (validation && validation.valid === false) {
+    return
+  }
+
+  if (!cityForm.name || !cityForm.state) {
+    return
+  }
+
+  const payload = {
+    name: cityForm.name.trim(),
+    state: cityForm.state.trim().toUpperCase(),
+  }
+
+  cityFormLoading.value = true
+  try {
+    if (cityForm.id) {
+      await updateCity(cityForm.id, payload)
+      snackbar.text = 'Cidade atualizada com sucesso.'
+    } else {
+      await createCity(payload)
+      snackbar.text = 'Cidade cadastrada com sucesso.'
+    }
+    snackbar.color = 'success'
+    snackbar.show = true
+    cityDialog.value = false
+    await loadCities()
+    resetCityForm()
+  } catch (error) {
+    snackbar.text = error.message || 'Não foi possível salvar a cidade.'
+    snackbar.color = 'error'
+    snackbar.show = true
+  } finally {
+    cityFormLoading.value = false
+  }
+}
+
+const confirmDeleteCity = (city) => {
+  cityToDelete.value = city
+  deleteDialog.value = true
+}
+
+const performDeleteCity = async () => {
+  if (!cityToDelete.value) {
+    return
+  }
+
+  try {
+    await deleteCity(cityToDelete.value.id)
+    snackbar.text = 'Cidade removida com sucesso.'
+    snackbar.color = 'success'
+    snackbar.show = true
+    await loadCities()
+  } catch (error) {
+    snackbar.text = error.message || 'Não foi possível remover a cidade.'
+    snackbar.color = 'error'
+    snackbar.show = true
+  } finally {
+    deleteDialog.value = false
+    cityToDelete.value = null
+  }
+}
+
+const loadCities = async () => {
+  citiesLoading.value = true
+  try {
+    cities.value = await listCities()
+  } catch (error) {
+    if (error.status === 401) {
+      handleAuthError()
+      return
+    }
+
+    snackbar.text = error.message || 'Não foi possível carregar suas cidades.'
+    snackbar.color = 'error'
+    snackbar.show = true
+  } finally {
+    citiesLoading.value = false
+  }
+}
+
+watch(cityDialog, (isOpen) => {
+  if (!isOpen) {
+    cityFormRef.value?.resetValidation?.()
+    resetCityForm()
+  }
+})
+
+watch(
+  () => cityForm.state,
+  (value) => {
+    if (!value) {
+      return
+    }
+
+    const formatted = value.toUpperCase().slice(0, 2)
+    if (formatted !== value) {
+      cityForm.state = formatted
+    }
+  }
+)
+
 onMounted(async () => {
   try {
     user.value = await getCurrentUser()
@@ -60,6 +186,8 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+
+  await loadCities()
 })
 </script>
 
@@ -89,17 +217,45 @@ onMounted(async () => {
 
           <v-divider class="my-4" />
 
-          <v-skeleton-loader v-if="loading" type="list-item-two-line@3" />
+          <v-skeleton-loader v-if="citiesLoading" type="list-item-two-line@3" />
 
-          <v-list v-else density="comfortable">
-            <v-list-item
-              v-for="city in favoriteCities"
-              :key="city.name"
-              :title="city.name"
-              :subtitle="`${city.uf} • adicionado em ${city.addedAt}`"
-              prepend-icon="mdi-city-variant-outline"
-            />
+          <v-list v-else-if="cities.length" density="comfortable">
+            <v-list-item v-for="city in cities" :key="city.id">
+              <template #prepend>
+                <v-avatar color="primary" variant="tonal" size="36">
+                  <v-icon icon="mdi-city-variant-outline" size="22" />
+                </v-avatar>
+              </template>
+
+              <v-list-item-title>{{ city.name }}</v-list-item-title>
+              <v-list-item-subtitle>{{ city.state }}</v-list-item-subtitle>
+
+              <template #append>
+                <div class="city-actions">
+                  <button class="city-actions__icon" type="button" @click="openEditCity(city)">
+                    <span class="material-icons">edit</span>
+                  </button>
+                  <button
+                    class="city-actions__icon city-actions__icon--danger"
+                    type="button"
+                    @click="confirmDeleteCity(city)"
+                  >
+                    <span class="material-icons">delete</span>
+                  </button>
+                </div>
+              </template>
+            </v-list-item>
           </v-list>
+
+          <div v-else class="empty-state">
+            <v-icon icon="mdi-map-marker-plus" color="primary" size="32" class="mb-3" />
+            <p>Nenhuma cidade cadastrada ainda.</p>
+            <v-btn color="primary" variant="tonal" @click="openCreateCity">Cadastrar cidade</v-btn>
+          </div>
+
+          <v-card-actions class="mt-auto pt-4" v-if="cities.length">
+            <v-btn block color="primary" variant="tonal" @click="openCreateCity">Cadastrar cidade</v-btn>
+          </v-card-actions>
         </v-card>
       </v-col>
 
@@ -161,6 +317,70 @@ onMounted(async () => {
         </v-alert>
       </v-col>
     </v-row>
+
+    <v-dialog v-model="cityDialog" max-width="480">
+      <v-card>
+        <v-card-title class="text-h6">
+          {{ cityForm.id ? 'Editar cidade' : 'Cadastrar cidade' }}
+        </v-card-title>
+
+        <v-card-text>
+          <v-form ref="cityFormRef" @submit.prevent="submitCityForm">
+            <v-text-field
+              v-model.trim="cityForm.name"
+              label="Nome da cidade"
+              placeholder="Ex.: Brasília"
+              :rules="[(v) => !!v || 'Informe o nome da cidade.']"
+              :disabled="cityFormLoading"
+              variant="outlined"
+              density="comfortable"
+            />
+
+            <v-text-field
+              v-model.trim="cityForm.state"
+              label="UF"
+              placeholder="Ex.: DF"
+              class="mt-4"
+              :rules="[
+                (v) => !!v || 'Informe a UF.',
+                (v) => !v || v.length === 2 || 'Informe apenas 2 caracteres.',
+              ]"
+              :disabled="cityFormLoading"
+              variant="outlined"
+              density="comfortable"
+              maxlength="2"
+              counter="2"
+            />
+          </v-form>
+        </v-card-text>
+
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="cityDialog = false" :disabled="cityFormLoading">Cancelar</v-btn>
+          <v-btn color="primary" :loading="cityFormLoading" @click="submitCityForm">
+            {{ cityForm.id ? 'Salvar' : 'Cadastrar' }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="deleteDialog" max-width="420">
+      <v-card>
+        <v-card-title class="text-h6">Remover cidade</v-card-title>
+        <v-card-text>
+          Tem certeza que deseja remover "{{ cityToDelete?.name }}"?
+        </v-card-text>
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="deleteDialog = false">Cancelar</v-btn>
+          <v-btn color="error" @click="performDeleteCity">Remover</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="4000">
+      {{ snackbar.text }}
+    </v-snackbar>
   </v-container>
 </template>
 
@@ -181,6 +401,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 2rem;
+  padding: clamp(1.5rem, 3vw, 2.25rem);
 }
 
 .home-greeting h1 {
@@ -224,6 +445,54 @@ onMounted(async () => {
   font-weight: 600;
   color: #115e59;
   font-size: 1.05rem;
+}
+
+.empty-state {
+  padding: 1rem 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  color: #64748b;
+}
+
+.city-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.city-actions__icon {
+  background-color: rgba(59, 130, 246, 0.1);
+  border: none;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #1d4ed8;
+  transition: background-color 0.2s ease;
+}
+
+.city-actions__icon:hover {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.city-actions__icon span {
+  font-size: 18px;
+  line-height: 18px;
+}
+
+.city-actions__icon--danger {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.city-actions__icon--danger:hover {
+  background-color: rgba(239, 68, 68, 0.2);
 }
 
 .dot {
