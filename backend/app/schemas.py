@@ -35,3 +35,8 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+
+class HomeResponse(BaseModel):
+    message: str
+    email: EmailStr
+

@@ -1,5 +1,6 @@
 <script setup>
 import { reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { login } from '../services/auth'
 
@@ -8,6 +9,8 @@ const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const formRef = ref(null)
+const router = useRouter()
+const route = useRoute()
 
 const resetFeedback = () => {
   errorMessage.value = ''
@@ -32,7 +35,9 @@ const handleSubmit = async () => {
   try {
     const token = await login({ email: form.email, password: form.password })
     localStorage.setItem('accessToken', token)
-    successMessage.value = 'Login realizado com sucesso!'
+
+    const redirectPath = (route.query.redirect && String(route.query.redirect)) || '/home'
+    await router.push(redirectPath)
   } catch (error) {
     errorMessage.value = error.message || 'Não foi possível realizar o login.'
   } finally {

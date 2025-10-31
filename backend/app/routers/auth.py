@@ -55,3 +55,8 @@ def login(
 def read_current_user(current_user: models.User = Depends(get_current_user)):
     return current_user
 
+
+@router.get("/home", response_model=schemas.HomeResponse)
+def read_home(current_user: models.User = Depends(get_current_user)):
+    return schemas.HomeResponse(message="Home", email=current_user.email)
+
