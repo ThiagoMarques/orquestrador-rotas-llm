@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 
 const HomeView = () => import('../views/HomeView.vue')
+const RegisterView = () => import('../views/RegisterView.vue')
 
 const routes = [
   {
@@ -17,6 +18,11 @@ const routes = [
     meta: {
       requiresAuth: true,
     },
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: RegisterView,
   },
 ]
 
@@ -33,7 +39,7 @@ router.beforeEach((to, from, next) => {
     return
   }
 
-  if (to.name === 'Login' && token) {
+  if ((to.name === 'Login' || to.name === 'Register') && token) {
     next({ name: 'Home' })
     return
   }

@@ -55,3 +55,28 @@ export async function login({ email, password }) {
   return data.access_token
 }
 
+export async function register({ email, password, fullName }) {
+  if (!email || !password) {
+    throw new Error('Informe e-mail e senha para continuar.')
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      full_name: fullName || null,
+    }),
+  })
+
+  if (!response.ok) {
+    const detail = await parseError(response)
+    throw new Error(detail)
+  }
+
+  return response.json()
+}
+
