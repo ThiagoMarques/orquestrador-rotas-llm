@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     secret_key: str = Field(default="change-this-secret", env="SECRET_KEY")
     token_expire_minutes: int = Field(default=60, env="TOKEN_EXPIRE_MINUTES")
     database_url: str = Field(
-        default="postgresql+psycopg2://postgres:postgres@db:5432/orquestrador",
+        default="postgresql+psycopg://postgres:postgres@db:5432/orquestrador",
         env="DATABASE_URL",
     )
 

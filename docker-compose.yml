@@ -18,7 +18,7 @@ services:
     volumes:
       - ./backend/app:/app/app
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-orquestrador}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-orquestrador}
       SECRET_KEY: ${SECRET_KEY:-change-this-secret}
       TOKEN_EXPIRE_MINUTES: ${TOKEN_EXPIRE_MINUTES:-60}
     ports:
