@@ -5,6 +5,13 @@ Projeto base para um orquestrador de rotas com frontend em Vue.js, backend em Py
 ## Pré-requisitos
 
 - Docker e Docker Compose instalados.
+- Durante o build da imagem do backend é necessário instalar dependências nativas para o `psycopg2-binary`. Caso personalize o Dockerfile, inclua o comando:
+  ```Dockerfile
+  RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      libpq-dev \
+   && rm -rf /var/lib/apt/lists/*
+  ```
 - Arquivo de variáveis de ambiente (copie `env.example` para `.env`).
 
 ```bash
