@@ -5,9 +5,6 @@ const buildLoginBody = ({ email, password }) => {
   params.set('username', email)
   params.set('password', password)
   params.set('scope', '')
-  params.set('grant_type', '')
-  params.set('client_id', '')
-  params.set('client_secret', '')
   return params
 }
 
