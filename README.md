@@ -27,10 +27,4 @@ docker compose up --build
 - `GET /api/auth/me`: retorna dados do usuário autenticado (enviar header `Authorization: Bearer <token>`).
 - `GET /api/health`: verificação simples da API.
 
-## Próximos passos
-
-- Implementar frontend em Vue.js consumindo esses endpoints.
-- Estruturar entidades de tema/cidade/rotas.
-- Adicionar migrações com Alembic.
-- Configurar testes automatizados (pytest para backend, Vitest/Jest para frontend).
 
