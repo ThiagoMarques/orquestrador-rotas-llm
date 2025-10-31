@@ -21,6 +21,7 @@ const cityForm = reactive({ id: null, name: '', state: '' })
 const deleteDialog = ref(false)
 const cityToDelete = ref(null)
 const snackbar = reactive({ show: false, text: '', color: 'success' })
+const chatMessage = ref('')
 
 const plannedRoutes = ref([
   { from: 'Brasília', to: 'Ribeirão Preto', date: '12/04/2025', status: 'Confirmada' },
@@ -34,6 +35,17 @@ const aiSuggestions = ref([
     reason: 'Alta demanda prevista para o próximo feriado prolongado.',
   },
 ])
+
+const sendChatMessage = () => {
+  if (!chatMessage.value.trim()) {
+    return
+  }
+
+  snackbar.text = 'Mensagem encaminhada! Em breve adicionaremos o chat.'
+  snackbar.color = 'info'
+  snackbar.show = true
+  chatMessage.value = ''
+}
 
 const displayName = computed(() => {
   if (user.value?.full_name) {
@@ -318,6 +330,35 @@ onMounted(async () => {
       </v-col>
     </v-row>
 
+    <v-row class="mt-8">
+      <v-col cols="12">
+        <v-card class="chat-input" rounded="xl" elevation="2">
+          <div class="chat-input__wrapper">
+            <v-textarea
+              v-model="chatMessage"
+              class="chat-input__textarea"
+              variant="plain"
+              rows="2"
+              auto-grow
+              hide-details
+              placeholder="Digite sua mensagem..."
+              base-color="transparent"
+            />
+
+            <v-btn
+              color="primary"
+              class="chat-input__send"
+              rounded="xl"
+              :disabled="!chatMessage.trim()"
+              @click="sendChatMessage"
+            >
+              Enviar
+            </v-btn>
+          </div>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <v-dialog v-model="cityDialog" max-width="480">
       <v-card>
         <v-card-title class="text-h6">
@@ -494,6 +535,45 @@ onMounted(async () => {
 .city-actions__icon--danger:hover {
   background-color: rgba(239, 68, 68, 0.2);
 }
+
+.chat-input {
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background-color: #ffffff;
+}
+
+.chat-input__wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 1.25rem;
+}
+
+.chat-input__textarea {
+  flex: 1;
+  padding: 0;
+}
+
+.chat-input__textarea :deep(.v-field) {
+  padding: 0;
+}
+
+.chat-input__textarea :deep(textarea) {
+  padding: 0;
+  padding-top: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.chat-input__textarea :deep(textarea::placeholder) {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+.chat-input__send {
+  min-width: 120px;
+  padding: 0.75rem 1.25rem;
+}
+
 
 .dot {
   display: inline-block;
