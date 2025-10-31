@@ -5,7 +5,7 @@ Projeto base para um orquestrador de rotas com frontend em Vue.js, backend em Py
 ## Pré-requisitos
 
 - Docker e Docker Compose instalados.
-- Durante o build da imagem do backend é necessário instalar dependências nativas para o `psycopg2-binary`. Caso personalize o Dockerfile, inclua o comando:
+- Durante o build da imagem do backend é necessário instalar dependências nativas para o `psycopg[binary]`. Caso personalize o Dockerfile, inclua o comando:
   ```Dockerfile
   RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
@@ -26,6 +26,7 @@ docker compose up --build
 
 - API disponível em `http://localhost:8000`
 - Documentação automática (Swagger) em `http://localhost:8000/docs`
+- pgAdmin disponível em `http://localhost:5050` (use `PGADMIN_DEFAULT_EMAIL` e `PGADMIN_DEFAULT_PASSWORD` definidos no `.env`).
 
 ## Endpoints iniciais
 
@@ -33,5 +34,16 @@ docker compose up --build
 - `POST /api/auth/login`: autenticação via OAuth2 (enviar `username` e `password` como `form-data`). Retorna token JWT.
 - `GET /api/auth/me`: retorna dados do usuário autenticado (enviar header `Authorization: Bearer <token>`).
 - `GET /api/health`: verificação simples da API.
+
+## Acessando o pgAdmin
+
+1. Abra `http://localhost:5050` e faça login com as credenciais definidas nas variáveis `PGADMIN_DEFAULT_EMAIL` e `PGADMIN_DEFAULT_PASSWORD` do `.env`.
+2. Crie um novo servidor e configure:
+   - **Name**: qualquer identificação (ex.: `Postgres local`).
+   - **Host**: `db` (nome do serviço Docker).
+   - **Port**: `5432`.
+   - **Username**: valor de `POSTGRES_USER`.
+   - **Password**: valor de `POSTGRES_PASSWORD`.
+3. Após salvar, você poderá explorar o banco `orquestrador`, consultar tabelas e executar queries diretamente pelo navegador.
 
 
