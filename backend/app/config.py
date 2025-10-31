@@ -14,6 +14,8 @@ class Settings(BaseSettings):
         default=["http://localhost:5173", "http://127.0.0.1:5173"],
         env="CORS_ALLOWED_ORIGINS",
     )
+    gemini_api_key: str | None = Field(default=None, env="GEMINI_API_KEY")
+    gemini_model: str = Field(default="gemini-2.0-flash", env="GEMINI_MODEL")
 
     @validator("cors_allowed_origins", pre=True)
     def split_cors_origins(cls, value):

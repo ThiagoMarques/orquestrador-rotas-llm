@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { createCity, deleteCity, listCities, updateCity } from '../services/cities'
+import { sendGeminiMessage } from '../services/ai'
 import { getCurrentUser } from '../services/user'
 
 const router = useRouter()
@@ -22,6 +23,8 @@ const deleteDialog = ref(false)
 const cityToDelete = ref(null)
 const snackbar = reactive({ show: false, text: '', color: 'success' })
 const chatMessage = ref('')
+const chatResponse = ref('')
+const chatLoading = ref(false)
 
 const plannedRoutes = ref([
   { from: 'Brasília', to: 'Ribeirão Preto', date: '12/04/2025', status: 'Confirmada' },
@@ -36,15 +39,30 @@ const aiSuggestions = ref([
   },
 ])
 
-const sendChatMessage = () => {
+const sendChatMessage = async () => {
   if (!chatMessage.value.trim()) {
     return
   }
 
-  snackbar.text = 'Mensagem encaminhada! Em breve adicionaremos o chat.'
-  snackbar.color = 'info'
-  snackbar.show = true
-  chatMessage.value = ''
+  chatLoading.value = true
+  chatResponse.value = ''
+
+  try {
+    const { response } = await sendGeminiMessage(chatMessage.value)
+    chatResponse.value = response
+    chatMessage.value = ''
+  } catch (error) {
+    if (error.status === 401) {
+      handleAuthError()
+      return
+    }
+
+    snackbar.text = error.message || 'Não foi possível obter a resposta da IA.'
+    snackbar.color = 'error'
+    snackbar.show = true
+  } finally {
+    chatLoading.value = false
+  }
 }
 
 const displayName = computed(() => {
@@ -330,6 +348,21 @@ onMounted(async () => {
       </v-col>
     </v-row>
 
+    <v-row v-if="chatLoading || chatResponse" class="mt-6">
+      <v-col cols="12">
+        <v-card class="ai-response" rounded="lg" elevation="1">
+          <div v-if="chatLoading" class="ai-response__loading">
+            <span class="material-icons chat-loader">autorenew</span>
+            <span>Consultando o Gemini...</span>
+          </div>
+          <div v-else class="ai-response__content">
+            <h3>Resposta da IA</h3>
+            <p>{{ chatResponse }}</p>
+          </div>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <v-row class="mt-8">
       <v-col cols="12">
         <v-card class="chat-input" rounded="xl" elevation="2">
@@ -349,7 +382,8 @@ onMounted(async () => {
               color="primary"
               class="chat-input__send"
               rounded="xl"
-              :disabled="!chatMessage.trim()"
+              :loading="chatLoading"
+              :disabled="!chatMessage.trim() || chatLoading"
               @click="sendChatMessage"
             >
               Enviar
@@ -572,6 +606,53 @@ onMounted(async () => {
 .chat-input__send {
   min-width: 120px;
   padding: 0.75rem 1.25rem;
+}
+
+.ai-response {
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(45, 212, 191, 0.08));
+  padding: clamp(1.5rem, 2.8vw, 2rem);
+}
+
+.ai-response__loading,
+.ai-response__content {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.ai-response__content {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ai-response__content h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.ai-response__content p {
+  margin: 0;
+  color: #1f2937;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.chat-loader {
+  font-size: 28px;
+  color: #2563eb;
+  animation: chat-spin 1.2s linear infinite;
+}
+
+@keyframes chat-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 
