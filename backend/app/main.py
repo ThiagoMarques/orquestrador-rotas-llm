@@ -18,7 +18,7 @@ _extend_sys_path()
 from . import models
 from .config import settings
 from .database import Base, engine
-from .routers import ai, auth, cities
+from .routers import ai, auth, cities, route_plans
 
 
 
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(cities.router)
     app.include_router(ai.router)
+    app.include_router(route_plans.router)
 
     @app.get("/api/health", tags=["health"])
     async def health_check():

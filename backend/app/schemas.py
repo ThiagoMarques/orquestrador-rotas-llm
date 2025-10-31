@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field
@@ -39,6 +39,35 @@ class UserLogin(BaseModel):
 class HomeResponse(BaseModel):
     message: str
     email: EmailStr
+
+
+class RoutePlanBase(BaseModel):
+    itinerary: str
+    travel_date: date | None
+    distance_km: Optional[str]
+    travel_time: Optional[str]
+    cost_brl: Optional[str]
+    trip_type: Optional[str]
+    transport_type: Optional[str]
+
+
+class RoutePlanRead(RoutePlanBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+class RoutePlanDetail(RoutePlanBase):
+    lodging: Optional[str]
+    food: Optional[str]
+    activity: Optional[str]
+    estimated_spend_brl: Optional[str]
+    summary: Optional[str]
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
 
 
 class CityBase(BaseModel):

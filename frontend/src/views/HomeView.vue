@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { createCity, deleteCity, listCities, updateCity } from '../services/cities'
 import { sendGeminiMessage } from '../services/ai'
+import { listRoutes, getRouteById, downloadRouteCsv } from '../services/routes'
 import { getCurrentUser } from '../services/user'
 
 const router = useRouter()
@@ -25,11 +26,11 @@ const snackbar = reactive({ show: false, text: '', color: 'success' })
 const chatMessage = ref('')
 const chatResponse = ref('')
 const chatLoading = ref(false)
-
-const plannedRoutes = ref([
-  { from: 'Brasília', to: 'Ribeirão Preto', date: '12/04/2025', status: 'Confirmada' },
-  { from: 'São Paulo', to: 'Belo Horizonte', date: '28/03/2025', status: 'Em análise' },
-])
+const routes = ref([])
+const routesLoading = ref(true)
+const routeDetailDialog = ref(false)
+const selectedRoute = ref(null)
+const routeDetailLoading = ref(false)
 
 const aiSuggestions = ref([
   {
@@ -51,6 +52,7 @@ const sendChatMessage = async () => {
     const { response } = await sendGeminiMessage(chatMessage.value)
     chatResponse.value = response
     chatMessage.value = ''
+    await loadRoutes()
   } catch (error) {
     if (error.status === 401) {
       handleAuthError()
@@ -182,6 +184,87 @@ const loadCities = async () => {
   }
 }
 
+const loadRoutes = async () => {
+  routesLoading.value = true
+  try {
+    routes.value = await listRoutes()
+  } catch (error) {
+    if (error.status === 401) {
+      handleAuthError()
+      return
+    }
+
+    snackbar.text = error.message || 'Não foi possível carregar as rotas planejadas.'
+    snackbar.color = 'error'
+    snackbar.show = true
+  } finally {
+    routesLoading.value = false
+  }
+}
+
+const openRouteDetail = async (routeSummary) => {
+  routeDetailDialog.value = true
+  routeDetailLoading.value = true
+  selectedRoute.value = null
+
+  try {
+    const detail = await getRouteById(routeSummary.id)
+    selectedRoute.value = detail
+  } catch (error) {
+    if (error.status === 401) {
+      handleAuthError()
+      return
+    }
+
+    snackbar.text = error.message || 'Não foi possível carregar detalhes da rota.'
+    snackbar.color = 'error'
+    snackbar.show = true
+    routeDetailDialog.value = false
+  } finally {
+    routeDetailLoading.value = false
+  }
+}
+
+const handleDownloadCsv = async (routeId) => {
+  try {
+    const blob = await downloadRouteCsv(routeId)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `rota-${routeId}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    if (error.status === 401) {
+      handleAuthError()
+      return
+    }
+
+    snackbar.text = error.message || 'Não foi possível baixar o CSV da rota.'
+    snackbar.color = 'error'
+    snackbar.show = true
+  }
+}
+
+const formatDate = (value) => {
+  if (!value) {
+    return 'Data a definir'
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return parsed.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
 watch(cityDialog, (isOpen) => {
   if (!isOpen) {
     cityFormRef.value?.resetValidation?.()
@@ -218,6 +301,7 @@ onMounted(async () => {
   }
 
   await loadCities()
+  await loadRoutes()
 })
 </script>
 
@@ -296,12 +380,14 @@ onMounted(async () => {
 
           <v-divider class="my-4" />
 
-          <v-skeleton-loader v-if="loading" type="list-item-three-line@2" />
+          <v-skeleton-loader v-if="routesLoading" type="list-item-three-line@2" />
 
-          <v-list v-else density="comfortable">
+          <v-list v-else-if="routes.length" density="comfortable">
             <v-list-item
-              v-for="routeItem in plannedRoutes"
-              :key="`${routeItem.from}-${routeItem.to}`"
+              v-for="routeItem in routes"
+              :key="routeItem.id"
+              class="planned-route-item"
+              @click="openRouteDetail(routeItem)"
             >
               <template #prepend>
                 <v-avatar color="primary" variant="tonal" size="36">
@@ -309,14 +395,17 @@ onMounted(async () => {
                 </v-avatar>
               </template>
 
-              <v-list-item-title>{{ routeItem.from }} → {{ routeItem.to }}</v-list-item-title>
+              <v-list-item-title>{{ routeItem.itinerary }}</v-list-item-title>
               <v-list-item-subtitle>
-                <span>{{ routeItem.date }}</span>
-                <span class="dot" />
-                <span>{{ routeItem.status }}</span>
+                <span>{{ formatDate(routeItem.travel_date) }}</span>
               </v-list-item-subtitle>
             </v-list-item>
           </v-list>
+
+          <div v-else class="empty-state">
+            <v-icon icon="mdi-map-search-outline" color="primary" size="32" class="mb-3" />
+            <p>Nenhuma rota planejada ainda. Envie uma mensagem no chat para gerar sugestões.</p>
+          </div>
         </v-card>
       </v-col>
 
@@ -434,6 +523,83 @@ onMounted(async () => {
           <v-btn variant="text" @click="cityDialog = false" :disabled="cityFormLoading">Cancelar</v-btn>
           <v-btn color="primary" :loading="cityFormLoading" @click="submitCityForm">
             {{ cityForm.id ? 'Salvar' : 'Cadastrar' }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="routeDetailDialog" max-width="560">
+      <v-card>
+        <v-card-title class="text-h6">
+          {{ selectedRoute?.itinerary || 'Detalhes da rota' }}
+        </v-card-title>
+
+        <v-card-text>
+          <div v-if="routeDetailLoading" class="route-detail__loading">
+            <span class="material-icons chat-loader">autorenew</span>
+            <span>Carregando detalhes...</span>
+          </div>
+
+          <div v-else-if="selectedRoute">
+            <p class="route-detail__summary">{{ selectedRoute.summary }}</p>
+
+            <v-table class="route-detail__table" density="compact">
+              <tbody>
+                <tr>
+                  <th>Data prevista</th>
+                  <td>{{ formatDate(selectedRoute.travel_date) }}</td>
+                </tr>
+                <tr>
+                  <th>Distância</th>
+                  <td>{{ selectedRoute.distance_km || '—' }}</td>
+                </tr>
+                <tr>
+                  <th>Tempo de viagem</th>
+                  <td>{{ selectedRoute.travel_time || '—' }}</td>
+                </tr>
+                <tr>
+                  <th>Custo estimado</th>
+                  <td>{{ selectedRoute.cost_brl || '—' }}</td>
+                </tr>
+                <tr>
+                  <th>Tipo de viagem</th>
+                  <td>{{ selectedRoute.trip_type || '—' }}</td>
+                </tr>
+                <tr>
+                  <th>Transporte</th>
+                  <td>{{ selectedRoute.transport_type || '—' }}</td>
+                </tr>
+                <tr>
+                  <th>Hospedagem</th>
+                  <td>{{ selectedRoute.lodging || '—' }}</td>
+                </tr>
+                <tr>
+                  <th>Alimentação</th>
+                  <td>{{ selectedRoute.food || '—' }}</td>
+                </tr>
+                <tr>
+                  <th>Atividade</th>
+                  <td>{{ selectedRoute.activity || '—' }}</td>
+                </tr>
+                <tr>
+                  <th>Gasto estimado</th>
+                  <td>{{ selectedRoute.estimated_spend_brl || '—' }}</td>
+                </tr>
+              </tbody>
+            </v-table>
+          </div>
+        </v-card-text>
+
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="routeDetailDialog = false">Fechar</v-btn>
+          <v-btn
+            v-if="selectedRoute"
+            color="primary"
+            variant="tonal"
+            @click="handleDownloadCsv(selectedRoute.id)"
+          >
+            Baixar CSV
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -612,6 +778,34 @@ onMounted(async () => {
   border: 1px solid rgba(15, 23, 42, 0.06);
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(45, 212, 191, 0.08));
   padding: clamp(1.5rem, 2.8vw, 2rem);
+}
+
+.planned-route-item {
+  cursor: pointer;
+}
+
+.route-detail__loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.route-detail__summary {
+  margin: 0 0 1rem;
+  color: #1f2937;
+  line-height: 1.6;
+}
+
+.route-detail__table th {
+  text-align: left;
+  color: #475569;
+  font-weight: 600;
+  padding-right: 1rem;
+  white-space: nowrap;
+}
+
+.route-detail__table td {
+  color: #0f172a;
 }
 
 .ai-response__loading,

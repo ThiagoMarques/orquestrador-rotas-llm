@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -22,6 +22,12 @@ class User(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    route_plans = relationship(
+        "RoutePlan",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class City(Base):
@@ -37,4 +43,27 @@ class City(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="cities")
+
+
+class RoutePlan(Base):
+    __tablename__ = "route_plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    itinerary = Column(String(255), nullable=False)
+    travel_date = Column(Date, nullable=True)
+    distance_km = Column(String(64), nullable=True)
+    travel_time = Column(String(64), nullable=True)
+    cost_brl = Column(String(64), nullable=True)
+    trip_type = Column(String(64), nullable=True)
+    transport_type = Column(String(64), nullable=True)
+    lodging = Column(String(64), nullable=True)
+    food = Column(String(64), nullable=True)
+    activity = Column(String(64), nullable=True)
+    estimated_spend_brl = Column(String(64), nullable=True)
+    summary = Column(String(2048), nullable=True)
+    csv_row = Column(String(1024), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    user = relationship("User", back_populates="route_plans")
 
