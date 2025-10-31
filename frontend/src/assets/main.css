@@ -6,10 +6,7 @@ body {
   justify-content: center;
   align-items: center;
   padding: 2.5rem;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.25), transparent 55%),
-    radial-gradient(circle at 100% 0%, rgba(147, 51, 234, 0.2), transparent 50%),
-    #f1f5f9;
+  background-color: #f8fafc;
 }
 
 #app {

@@ -3,7 +3,7 @@ import { reactive, ref } from 'vue'
 
 import { login } from '../services/auth'
 
-const form = reactive({ email: '', password: '' })
+const form = reactive({ email: '', password: '', remember: false })
 const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
@@ -42,13 +42,21 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <v-container fluid class="login-wrapper" tag="section">
-    <v-row class="fill-height" align="center" justify="center">
-      <v-col cols="12" md="8" lg="6" xl="5">
-        <v-card class="login-card" rounded="xl">
-          <v-card-title class="text-h5 text-md-h4 font-weight-bold mb-6">Login</v-card-title>
+  <v-container fluid class="login-page" tag="section">
+    <v-row class="fill-height" align="center" justify="center" no-gutters>
+      <v-col cols="12" sm="10" md="7" lg="6">
+        <v-card class="login-card" rounded="lg" elevation="2">
+          <div class="login-card__logo">
+            <v-avatar size="40" color="primary" variant="tonal">
+              <v-icon icon="mdi-vuetify" size="28" />
+            </v-avatar>
+          </div>
 
-          <v-form ref="formRef" @submit.prevent="handleSubmit">
+          <header class="login-card__header">
+            <h1 class="login-card__title">Entre na sua conta</h1>
+          </header>
+
+          <v-form ref="formRef" class="login-card__form" @submit.prevent="handleSubmit">
             <v-text-field
               v-model.trim="form.email"
               type="email"
@@ -57,7 +65,6 @@ const handleSubmit = async () => {
               density="comfortable"
               variant="outlined"
               :disabled="loading"
-              prepend-inner-icon="mdi-email-outline"
               required
             />
 
@@ -70,17 +77,22 @@ const handleSubmit = async () => {
               density="comfortable"
               variant="outlined"
               :disabled="loading"
-              prepend-inner-icon="mdi-lock-outline"
               class="mt-4"
               required
             />
+
+            <div class="login-card__actions mt-4">
+              <v-btn variant="text" color="primary" class="text-capitalize" density="compact" type="button">
+                Esqueceu a senha?
+              </v-btn>
+            </div>
 
             <v-btn class="mt-6" color="primary" block size="large" type="submit" :loading="loading">
               Entrar
             </v-btn>
           </v-form>
 
-          <div class="mt-6">
+          <div class="login-card__feedback mt-6">
             <v-alert
               v-if="errorMessage"
               type="error"
@@ -101,6 +113,13 @@ const handleSubmit = async () => {
               {{ successMessage }}
             </v-alert>
           </div>
+
+          <footer class="login-card__footer mt-6">
+            <span>Não tem uma conta?</span>
+            <v-btn variant="text" color="primary" density="compact" class="text-capitalize" type="button">
+              Cadastre-se
+            </v-btn>
+          </footer>
         </v-card>
       </v-col>
     </v-row>
@@ -108,35 +127,78 @@ const handleSubmit = async () => {
 </template>
 
 <style scoped>
-.login-wrapper {
+.login-page {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: clamp(2rem, 4vw, 4rem) 1.5rem;
-  background:
-    linear-gradient(135deg, rgba(167, 243, 208, 0.78), rgba(74, 222, 128, 0.85)),
-    url('https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
+  background-color: #f8fafc;
 }
 
 .login-card {
-  padding: clamp(2rem, 4vw, 3.25rem);
-  background-color: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(8px);
+  padding: clamp(2.8rem, 4vw, 4rem);
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background-color: #fff;
+  box-shadow:
+    0 18px 45px rgba(15, 23, 42, 0.08),
+    0 4px 18px rgba(15, 23, 42, 0.04);
 }
 
-.login-card :deep(.v-card-title) {
-  padding-inline: 0;
+.login-card__logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
 }
 
-.login-card :deep(.v-form) {
+.login-card__title {
+  margin: 0;
+  font-size: clamp(1.8rem, 2.4vw, 2.4rem);
+  font-weight: 700;
+  color: #0f172a;
+  text-align: center;
+}
+
+.login-card__header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.login-card__form {
   display: flex;
   flex-direction: column;
 }
 
+.login-card__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.login-card__feedback :deep(.v-alert) {
+  margin: 0;
+}
+
+.login-card__footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+  color: #475569;
+}
+
 @media (max-width: 600px) {
-  .login-wrapper {
+  .login-page {
     padding: 1.5rem 1rem;
+  }
+
+  .login-card {
+    padding: 2rem 1.5rem;
+  }
+
+  .login-card__actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
   }
 }
 </style>
