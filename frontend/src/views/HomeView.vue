@@ -385,7 +385,10 @@ onMounted(async () => {
     <v-row class="mt-4" dense>
       <v-col cols="12" md="4">
         <v-card class="home-card" rounded="lg" elevation="1">
-          <v-card-title class="home-card__title">Cidades escolhidas</v-card-title>
+          <v-card-title class="home-card__title">
+            <span class="material-icons home-card__icon">location_city</span>
+            Cidades escolhidas
+          </v-card-title>
           <v-card-subtitle class="home-card__subtitle">Locais que você acompanha mais de perto.</v-card-subtitle>
 
           <v-divider class="my-4" />
@@ -434,7 +437,10 @@ onMounted(async () => {
 
       <v-col cols="12" md="4">
         <v-card class="home-card" rounded="lg" elevation="1">
-          <v-card-title class="home-card__title">Rotas planejadas</v-card-title>
+          <v-card-title class="home-card__title">
+            <span class="material-icons home-card__icon">route</span>
+            Rotas planejadas
+          </v-card-title>
           <v-card-subtitle class="home-card__subtitle">Itinerários confirmados ou em validação.</v-card-subtitle>
 
           <v-divider class="my-4" />
@@ -495,7 +501,10 @@ onMounted(async () => {
 
       <v-col cols="12" md="4">
         <v-card class="home-card" rounded="lg" elevation="1">
-          <v-card-title class="home-card__title">Sugestões da IA</v-card-title>
+          <v-card-title class="home-card__title">
+            <span class="material-icons home-card__icon">psychology</span>
+            Sugestões da IA
+          </v-card-title>
           <v-card-subtitle class="home-card__subtitle">Recomendações inteligentes para novas rotas.</v-card-subtitle>
 
           <v-divider class="my-4" />
@@ -767,6 +776,12 @@ onMounted(async () => {
 
 .home-card__subtitle {
   color: #64748b;
+}
+
+.home-card__icon {
+  margin-right: 0.5rem;
+  font-size: 22px;
+  color: #2563eb;
 }
 
 .ai-suggestion {
