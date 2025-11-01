@@ -455,15 +455,21 @@ onMounted(async () => {
               @click="selectionMode ? toggleRouteSelection(routeItem.id) : openRouteDetail(routeItem)"
             >
               <template #prepend>
-                <v-avatar color="primary" variant="tonal" size="36">
-                  <v-icon icon="mdi-route-variant" size="22" />
-                </v-avatar>
-                <v-checkbox-btn
-                  v-if="selectionMode"
-                  :model-value="selectedRouteIds.includes(routeItem.id)"
-                  class="ml-2"
-                  @click.stop="toggleRouteSelection(routeItem.id)"
-                />
+                <div class="route-prepend">
+                  <v-avatar color="primary" variant="tonal" size="36">
+                    <v-icon icon="mdi-route-variant" size="22" />
+                  </v-avatar>
+                  <button
+                    v-if="selectionMode"
+                    type="button"
+                    class="route-select-icon"
+                    @click.stop="toggleRouteSelection(routeItem.id)"
+                  >
+                    <span class="material-icons">
+                      {{ selectedRouteIds.includes(routeItem.id) ? 'check_circle' : 'radio_button_unchecked' }}
+                    </span>
+                  </button>
+                </div>
               </template>
 
               <v-list-item-title>{{ routeItem.itinerary }}</v-list-item-title>
@@ -894,6 +900,32 @@ onMounted(async () => {
 
 .planned-route-item:hover {
   background-color: rgba(59, 130, 246, 0.08);
+}
+
+.route-prepend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.route-select-icon {
+  border: none;
+  background: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #1d4ed8;
+  transition: transform 0.15s ease;
+}
+
+.route-select-icon:hover {
+  transform: scale(1.1);
+}
+
+.route-select-icon .material-icons {
+  font-size: 22px;
 }
 
 .route-detail__loading {
