@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 import sys
 from pathlib import Path
 
@@ -22,9 +23,28 @@ from .routers import ai, auth, cities, route_plans
 
 
 
+def _ensure_city_role_column() -> None:
+    with engine.connect() as connection:
+        connection.execute(text("ALTER TABLE IF EXISTS cities ADD COLUMN IF NOT EXISTS role VARCHAR(20)"))
+        connection.execute(text("ALTER TABLE IF EXISTS cities ALTER COLUMN role SET DEFAULT 'intermediate'"))
+        connection.execute(text("UPDATE cities SET role = 'intermediate' WHERE role IS NULL"))
+        connection.execute(text("ALTER TABLE IF EXISTS cities ALTER COLUMN role SET NOT NULL"))
+        connection.execute(
+            text(
+                """
+                ALTER TABLE IF EXISTS cities
+                ADD CONSTRAINT IF NOT EXISTS ck_city_role
+                CHECK (role IN ('origin','destination','intermediate'))
+                """
+            )
+        )
+        connection.commit()
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Orquestrador Rotas LLM")
 
+    _ensure_city_role_column()
     Base.metadata.create_all(bind=engine)
 
     app.add_middleware(
