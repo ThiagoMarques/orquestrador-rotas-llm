@@ -1,7 +1,7 @@
 from datetime import date
 import json
 import re
-from typing import Any
+from typing import Any, Iterable
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -68,17 +68,83 @@ def _build_csv_row(route: dict[str, Any]) -> str:
     return ";".join(values)
 
 
-def _build_prompt(message: str, city_names: list[str]) -> str:
-    cities_block = ", ".join(city_names)
+def _group_cities(cities: Iterable[models.City]) -> tuple[models.City | None, models.City | None, list[models.City]]:
+    origin = None
+    destination = None
+    intermediates: list[models.City] = []
+
+    for city in cities:
+        role = getattr(city, "role", None) or "intermediate"
+        if role == "origin" and origin is None:
+            origin = city
+        elif role == "destination" and destination is None:
+            destination = city
+        else:
+            intermediates.append(city)
+
+    return origin, destination, intermediates
+
+
+def _format_city(city: models.City | None) -> str:
+    if not city:
+        return "Não definida"
+    return f"{city.name}-{city.state}"
+
+
+def _format_intermediates(intermediates: list[models.City]) -> str:
+    if not intermediates:
+        return "Nenhuma"
+    return ", ".join(f"{city.name}-{city.state}" for city in intermediates)
+
+
+def _format_routes_block(route_plans: list[models.RoutePlan]) -> str:
+    if not route_plans:
+        return "Nenhuma rota planejada previamente."
+
+    lines: list[str] = []
+    for index, plan in enumerate(route_plans, start=1):
+        parts = [
+            f"Itinerário: {plan.itinerary}",
+            f"Data: {plan.travel_date.isoformat() if plan.travel_date else 'indefinida'}",
+        ]
+
+        if plan.distance_km:
+            parts.append(f"Distância: {plan.distance_km}")
+        if plan.travel_time:
+            parts.append(f"Tempo: {plan.travel_time}")
+        if plan.transport_type:
+            parts.append(f"Transporte: {plan.transport_type}")
+        if plan.summary:
+            parts.append(f"Resumo: {plan.summary}")
+
+        lines.append(f"{index}. " + "; ".join(parts))
+
+    return "\n".join(lines)
+
+
+def _build_prompt(
+    message: str,
+    origin: models.City,
+    destination: models.City,
+    intermediates: list[models.City],
+    existing_routes: list[models.RoutePlan],
+) -> str:
+    origin_block = _format_city(origin)
+    destination_block = _format_city(destination)
+    intermediate_block = _format_intermediates(intermediates)
+    planned_routes_block = _format_routes_block(existing_routes)
+
     return (
         "Você atua como um planejador de rotas turísticas.\n"
-        "Considere apenas as seguintes cidades cadastradas pelo usuário: "
-        f"{cities_block}.\n"
-        "Com base no pedido abaixo, elabore apenas a melhor rota que faça"
-        " sentido com essas cidades.\n"
-        f"Pedido do usuário: \"{message}\".\n"
+        f"Cidade de origem definida pelo usuário: {origin_block}.\n"
+        f"Cidade de destino definida pelo usuário: {destination_block}.\n"
+        f"Cidades intermediárias cadastradas: {intermediate_block}.\n"
+        "Histórico de rotas planejadas anteriormente (mais recentes primeiro):\n"
+        f"{planned_routes_block}\n"
+        "Analise esse histórico e utilize-o como referência para responder ao novo pedido.\n"
+        f"Pedido atual do usuário: \"{message}\".\n"
         "Retorne estritamente um JSON com as chaves 'message' e 'routes'.\n"
-        "A chave 'message' deve conter um texto introdutório curto.\n"
+        "A chave 'message' deve conter um texto curto justificando a escolha da melhor rota entre as opções possíveis.\n"
         "A chave 'routes' deve ser uma lista com apenas um item contendo os campos:\n"
         "- itinerary: string no formato 'Cidade A → Cidade B'.\n"
         "- travel_date: data no formato YYYY-MM-DD (escolha uma data coerente; caso não haja indicação, use uma data dentro dos próximos 30 dias).\n"
@@ -107,9 +173,23 @@ def chat_with_gemini(
             detail="Cadastre pelo menos uma cidade antes de solicitar uma rota.",
         )
 
-    city_labels = [f"{city.name}-{city.state}" for city in cities]
+    origin, destination, intermediates = _group_cities(cities)
 
-    prompt = _build_prompt(payload.message, city_labels)
+    if not origin or not destination:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Defina cidades de origem e destino antes de solicitar uma rota.",
+        )
+
+    existing_routes = (
+        db.query(models.RoutePlan)
+        .filter(models.RoutePlan.user_id == current_user.id)
+        .order_by(models.RoutePlan.created_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    prompt = _build_prompt(payload.message, origin, destination, intermediates, existing_routes)
 
     try:
         gemini = get_gemini_service()

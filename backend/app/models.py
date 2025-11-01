@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -34,11 +34,16 @@ class City(Base):
     __tablename__ = "cities"
     __table_args__ = (
         UniqueConstraint("user_id", "name", "state", name="uq_city_user_name_state"),
+        CheckConstraint(
+            "role IN ('origin','destination','intermediate')",
+            name="ck_city_role",
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(120), nullable=False)
     state = Column(String(2), nullable=False)
+    role = Column(String(20), nullable=False, server_default="intermediate")
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

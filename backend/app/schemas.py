@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -74,9 +74,13 @@ class RoutePlanBulkDelete(BaseModel):
     route_ids: list[int] = Field(..., min_items=1, description="Lista de IDs de rotas a remover")
 
 
+CityRole = Literal["origin", "destination", "intermediate"]
+
+
 class CityBase(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     state: str = Field(min_length=2, max_length=2)
+    role: CityRole = Field(default="intermediate")
 
 
 class CityCreate(CityBase):
@@ -86,6 +90,7 @@ class CityCreate(CityBase):
 class CityUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=120)
     state: Optional[str] = Field(default=None, min_length=2, max_length=2)
+    role: Optional[CityRole] = Field(default=None)
 
 
 class CityRead(CityBase):

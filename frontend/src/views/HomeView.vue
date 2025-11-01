@@ -11,7 +11,6 @@ const router = useRouter()
 const route = useRoute()
 
 const user = ref(null)
-const loading = ref(true)
 const errorMessage = ref('')
 
 const cities = ref([])
@@ -19,7 +18,7 @@ const citiesLoading = ref(true)
 const cityDialog = ref(false)
 const cityFormRef = ref(null)
 const cityFormLoading = ref(false)
-const cityForm = reactive({ id: null, name: '', state: '' })
+const cityForm = reactive({ id: null, name: '', state: '', role: 'intermediate' })
 const deleteDialog = ref(false)
 const cityToDelete = ref(null)
 const snackbar = reactive({ show: false, text: '', color: 'success' })
@@ -33,20 +32,64 @@ const selectedRoute = ref(null)
 const routeDetailLoading = ref(false)
 const selectionMode = ref(false)
 const selectedRouteIds = ref([])
+const aiRecommendation = ref(null)
 
-const hasMinimumCities = computed(() => cities.value.length >= 2)
+const cityRoleLabels = {
+  origin: 'Origem',
+  destination: 'Destino',
+  intermediate: 'Intermediária',
+}
 
-const aiSuggestions = ref([
-  {
-    from: 'Curitiba',
-    to: 'Florianópolis',
-    reason: 'Alta demanda prevista para o próximo feriado prolongado.',
-  },
-])
+const originCity = computed(() => cities.value.find((city) => city.role === 'origin'))
+const destinationCity = computed(() => cities.value.find((city) => city.role === 'destination'))
+const waypointCities = computed(() => cities.value.filter((city) => city.role === 'intermediate'))
+
+const hasRouteConfiguration = computed(() => Boolean(originCity.value && destinationCity.value))
+const defaultCityRole = computed(() => {
+  if (!originCity.value) {
+    return 'origin'
+  }
+
+  if (!destinationCity.value) {
+    return 'destination'
+  }
+
+  return 'intermediate'
+})
+
+const cityRoleItems = computed(() => {
+  const editingId = cityForm.id
+  const isEditingOrigin = editingId && originCity.value?.id === editingId
+  const isEditingDestination = editingId && destinationCity.value?.id === editingId
+
+  return [
+    { value: 'origin', title: 'Origem', disabled: Boolean(originCity.value) && !isEditingOrigin },
+    { value: 'destination', title: 'Destino', disabled: Boolean(destinationCity.value) && !isEditingDestination },
+    { value: 'intermediate', title: 'Intermediária', disabled: false },
+  ]
+})
+
+const cityGroups = computed(() => {
+  const groups = []
+
+  if (originCity.value) {
+    groups.push({ key: 'origin', title: 'Origem', items: [originCity.value] })
+  }
+
+  if (destinationCity.value) {
+    groups.push({ key: 'destination', title: 'Destino', items: [destinationCity.value] })
+  }
+
+  if (waypointCities.value.length) {
+    groups.push({ key: 'intermediate', title: 'Intermediárias', items: waypointCities.value })
+  }
+
+  return groups
+})
 
 const sendChatMessage = async () => {
-  if (!hasMinimumCities.value) {
-    snackbar.text = 'Adicione pelo menos duas cidades para planejar uma rota.'
+  if (!hasRouteConfiguration.value) {
+    snackbar.text = 'Defina cidades de origem e destino para planejar uma rota.'
     snackbar.color = 'warning'
     snackbar.show = true
     return
@@ -60,10 +103,24 @@ const sendChatMessage = async () => {
   chatResponse.value = ''
 
   try {
-    const { response } = await sendGeminiMessage(chatMessage.value)
-    chatResponse.value = response
+    const { response, routes: generatedRoutes } = await sendGeminiMessage(chatMessage.value)
     chatMessage.value = ''
+    chatResponse.value = response
     await loadRoutes()
+
+    const suggestedRoute = generatedRoutes?.[0]
+    if (suggestedRoute) {
+      const refreshed = routes.value.find((routeItem) => routeItem.id === suggestedRoute.id) || suggestedRoute
+      aiRecommendation.value = {
+        summary: response,
+        route: refreshed,
+      }
+    } else {
+      aiRecommendation.value = {
+        summary: response,
+        route: null,
+      }
+    }
   } catch (error) {
     if (error.status === 401) {
       handleAuthError()
@@ -99,6 +156,7 @@ const resetCityForm = () => {
   cityForm.id = null
   cityForm.name = ''
   cityForm.state = ''
+  cityForm.role = defaultCityRole.value
 }
 
 const openCreateCity = () => {
@@ -110,6 +168,7 @@ const openEditCity = (city) => {
   cityForm.id = city.id
   cityForm.name = city.name
   cityForm.state = city.state
+  cityForm.role = city.role || 'intermediate'
   cityDialog.value = true
 }
 
@@ -119,13 +178,14 @@ const submitCityForm = async () => {
     return
   }
 
-  if (!cityForm.name || !cityForm.state) {
+  if (!cityForm.name || !cityForm.state || !cityForm.role) {
     return
   }
 
   const payload = {
     name: cityForm.name.trim(),
     state: cityForm.state.trim().toUpperCase(),
+    role: cityForm.role,
   }
 
   cityFormLoading.value = true
@@ -180,7 +240,11 @@ const performDeleteCity = async () => {
 const loadCities = async () => {
   citiesLoading.value = true
   try {
-    cities.value = await listCities()
+    const data = await listCities()
+    cities.value = data.map((city) => ({
+      ...city,
+      role: city.role || 'intermediate',
+    }))
   } catch (error) {
     if (error.status === 401) {
       handleAuthError()
@@ -198,7 +262,16 @@ const loadCities = async () => {
 const loadRoutes = async () => {
   routesLoading.value = true
   try {
-    routes.value = await listRoutes()
+    const data = await listRoutes()
+    routes.value = data
+
+    if (aiRecommendation.value?.route?.id) {
+      const updatedRoute = data.find((routeItem) => routeItem.id === aiRecommendation.value.route.id)
+      aiRecommendation.value = {
+        ...aiRecommendation.value,
+        route: updatedRoute || null,
+      }
+    }
   } catch (error) {
     if (error.status === 401) {
       handleAuthError()
@@ -355,8 +428,6 @@ onMounted(async () => {
     }
 
     errorMessage.value = error.message || 'Não foi possível carregar as informações.'
-  } finally {
-    loading.value = false
   }
 
   await loadCities()
@@ -395,32 +466,47 @@ onMounted(async () => {
 
           <v-skeleton-loader v-if="citiesLoading" type="list-item-two-line@3" />
 
-          <v-list v-else-if="cities.length" density="comfortable">
-            <v-list-item v-for="city in cities" :key="city.id">
-              <template #prepend>
-                <div class="city-icon">
-                  <span class="material-icons">location_on</span>
-                </div>
-              </template>
+          <v-list v-else-if="cityGroups.length" density="comfortable" class="city-list">
+            <template v-for="group in cityGroups" :key="group.key">
+              <v-list-subheader class="city-list__section">{{ group.title }}</v-list-subheader>
+              <v-list-item
+                v-for="city in group.items"
+                :key="city.id"
+              >
+                <template #prepend>
+                  <div class="city-icon">
+                    <span class="material-icons">location_on</span>
+                  </div>
+                </template>
 
-              <v-list-item-title>{{ city.name }}</v-list-item-title>
-              <v-list-item-subtitle>{{ city.state }}</v-list-item-subtitle>
-
-              <template #append>
-                <div class="city-actions">
-                  <button class="city-actions__icon" type="button" @click="openEditCity(city)">
-                    <span class="material-icons">edit</span>
-                  </button>
-                  <button
-                    class="city-actions__icon city-actions__icon--danger"
-                    type="button"
-                    @click="confirmDeleteCity(city)"
+                <v-list-item-title>{{ city.name }} - {{ city.state }}</v-list-item-title>
+                <v-list-item-subtitle>
+                  <v-chip
+                    size="small"
+                    variant="tonal"
+                    color="primary"
+                    class="city-role-chip"
                   >
-                    <span class="material-icons">delete</span>
-                  </button>
-                </div>
-              </template>
-            </v-list-item>
+                    {{ cityRoleLabels[city.role] || 'Intermediária' }}
+                  </v-chip>
+                </v-list-item-subtitle>
+
+                <template #append>
+                  <div class="city-actions">
+                    <button class="city-actions__icon" type="button" @click="openEditCity(city)">
+                      <span class="material-icons">edit</span>
+                    </button>
+                    <button
+                      class="city-actions__icon city-actions__icon--danger"
+                      type="button"
+                      @click="confirmDeleteCity(city)"
+                    >
+                      <span class="material-icons">delete</span>
+                    </button>
+                  </div>
+                </template>
+              </v-list-item>
+            </template>
           </v-list>
 
           <div v-else class="empty-state">
@@ -515,14 +601,41 @@ onMounted(async () => {
 
           <v-divider class="my-4" />
 
-          <v-skeleton-loader v-if="loading" type="list-item" />
+          <div v-if="chatLoading && !aiRecommendation" class="ai-suggestion__loading">
+            <span class="material-icons chat-loader">autorenew</span>
+            <span>Consultando o Gemini para analisar suas rotas...</span>
+          </div>
 
-          <div v-else class="ai-suggestion" v-for="suggestion in aiSuggestions" :key="`${suggestion.from}-${suggestion.to}`">
-            <div class="ai-suggestion__route">{{ suggestion.from }} → {{ suggestion.to }}</div>
-            <p>{{ suggestion.reason }}</p>
-            <v-alert type="info" variant="tonal" density="comfortable" border="start" class="mt-3">
-              Em breve, mostraremos aqui as rotas sugeridas dinamicamente pela IA.
-            </v-alert>
+          <div v-else-if="aiRecommendation" class="ai-suggestion__result">
+            <p class="ai-suggestion__summary">{{ aiRecommendation.summary }}</p>
+
+            <div v-if="aiRecommendation.route" class="ai-suggestion__best-route">
+              <span class="material-icons ai-suggestion__best-icon">emoji_events</span>
+              <div>
+                <div class="ai-suggestion__best-title">{{ aiRecommendation.route.itinerary }}</div>
+                <div class="ai-suggestion__best-meta">
+                  {{ formatDate(aiRecommendation.route.travel_date) }}
+                  <template v-if="aiRecommendation.route.transport_type">
+                    · {{ aiRecommendation.route.transport_type }}
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <v-btn
+              v-if="aiRecommendation.route"
+              color="primary"
+              variant="text"
+              class="mt-2"
+              @click="openRouteDetail(aiRecommendation.route)"
+            >
+              Ver detalhes da rota
+            </v-btn>
+          </div>
+
+          <div v-else class="ai-suggestion__placeholder">
+            <v-icon icon="mdi-robot-happy" color="primary" size="36" class="mb-3" />
+            <p>Envie uma solicitação no chat para que a IA analise suas rotas planejadas e destaque a melhor opção.</p>
           </div>
         </v-card>
       </v-col>
@@ -551,10 +664,10 @@ onMounted(async () => {
       </v-col>
     </v-row>
 
-    <v-row v-if="!hasMinimumCities" class="mt-8">
+    <v-row v-if="!hasRouteConfiguration" class="mt-8">
       <v-col cols="12">
         <v-alert type="warning" variant="tonal" density="comfortable" border="start">
-          Cadastre pelo menos duas cidades no card "Cidades escolhidas" para planejar rotas com a IA.
+          Cadastre uma cidade como origem e outra como destino no card "Cidades escolhidas" para planejar rotas com a IA.
         </v-alert>
       </v-col>
     </v-row>
@@ -572,7 +685,7 @@ onMounted(async () => {
               hide-details
               placeholder="Digite sua mensagem..."
               base-color="transparent"
-              :readonly="!hasMinimumCities"
+              :readonly="!hasRouteConfiguration"
             />
 
             <v-btn
@@ -580,7 +693,7 @@ onMounted(async () => {
               class="chat-input__send"
               rounded="xl"
               :loading="chatLoading"
-              :disabled="!hasMinimumCities || !chatMessage.trim() || chatLoading"
+              :disabled="!hasRouteConfiguration || !chatMessage.trim() || chatLoading"
               @click="sendChatMessage"
             >
               Enviar
@@ -622,6 +735,18 @@ onMounted(async () => {
               density="comfortable"
               maxlength="2"
               counter="2"
+            />
+
+            <v-select
+              v-model="cityForm.role"
+              class="mt-4"
+              :items="cityRoleItems"
+              label="Tipo de cidade"
+              item-title="title"
+              item-value="value"
+              :disabled="cityFormLoading"
+              variant="outlined"
+              density="comfortable"
             />
           </v-form>
         </v-card-text>
@@ -790,16 +915,81 @@ onMounted(async () => {
   color: #2563eb;
 }
 
-.ai-suggestion {
+.city-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
-.ai-suggestion__route {
+.city-list__section {
   font-weight: 600;
-  color: #115e59;
-  font-size: 1.05rem;
+  color: #1e293b;
+}
+
+.city-role-chip {
+  margin-top: 0.25rem;
+}
+
+.city-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: rgba(34, 197, 94, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #15803d;
+}
+
+.city-icon .material-icons {
+  font-size: 20px;
+}
+
+.ai-suggestion__loading,
+.ai-suggestion__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+  color: #475569;
+}
+
+.ai-suggestion__result {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ai-suggestion__summary {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #1f2937;
+}
+
+.ai-suggestion__best-route {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(45, 212, 191, 0.12));
+}
+
+.ai-suggestion__best-icon {
+  color: #1d4ed8;
+  font-size: 32px;
+}
+
+.ai-suggestion__best-title {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.ai-suggestion__best-meta {
+  color: #1f2937;
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
 }
 
 .empty-state {

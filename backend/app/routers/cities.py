@@ -2,6 +2,31 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+ROLE_LABELS = {
+    "origin": "origem",
+    "destination": "destino",
+}
+
+
+def _ensure_role_constraints(db: Session, user_id: int, role: str, *, exclude_id: int | None = None) -> None:
+    if role not in ROLE_LABELS:
+        return
+
+    query = (
+        db.query(models.City)
+        .filter(models.City.user_id == user_id, models.City.role == role)
+    )
+
+    if exclude_id is not None:
+        query = query.filter(models.City.id != exclude_id)
+
+    exists = query.first()
+    if exists:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Já existe uma cidade marcada como {ROLE_LABELS[role]}.",
+        )
+
 from ..database import get_db
 from ..dependencies import get_current_user
 
@@ -29,12 +54,15 @@ def create_city(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    normalized_name = city_in.name.strip()
+    normalized_state = city_in.state.strip().upper()
+
     existing = (
         db.query(models.City)
         .filter(
             models.City.user_id == current_user.id,
-            models.City.name == city_in.name,
-            models.City.state == city_in.state,
+            models.City.name == normalized_name,
+            models.City.state == normalized_state,
         )
         .first()
     )
@@ -44,7 +72,14 @@ def create_city(
             detail="Cidade já cadastrada para este usuário.",
         )
 
-    city = models.City(name=city_in.name, state=city_in.state, user_id=current_user.id)
+    _ensure_role_constraints(db, current_user.id, city_in.role)
+
+    city = models.City(
+        name=normalized_name,
+        state=normalized_state,
+        role=city_in.role,
+        user_id=current_user.id,
+    )
     db.add(city)
     db.commit()
     db.refresh(city)
@@ -66,10 +101,32 @@ def update_city(
     if not city:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cidade não encontrada.")
 
+    new_name = city_in.name.strip() if city_in.name is not None else city.name
+    new_state = city_in.state.strip().upper() if city_in.state is not None else city.state
+
+    duplicate = (
+        db.query(models.City)
+        .filter(
+            models.City.user_id == current_user.id,
+            models.City.id != city.id,
+            models.City.name == new_name,
+            models.City.state == new_state,
+        )
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Já existe uma cidade cadastrada com este nome e UF.",
+        )
+
     if city_in.name is not None:
-        city.name = city_in.name
+        city.name = new_name
     if city_in.state is not None:
-        city.state = city_in.state
+        city.state = new_state
+    if city_in.role is not None:
+        _ensure_role_constraints(db, current_user.id, city_in.role, exclude_id=city.id)
+        city.role = city_in.role
 
     db.commit()
     db.refresh(city)
