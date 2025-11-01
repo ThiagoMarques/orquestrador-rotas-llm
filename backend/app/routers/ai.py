@@ -63,7 +63,7 @@ def _parse_date(value: str | None) -> date | None:
 
 def _build_csv_row(route: dict[str, Any]) -> str:
     values = [route.get("itinerary", "")] + [
-        (route.get(field) or "").replace(';', ',') for field in ROUTE_FIELDS
+        str(route.get(field) or "").replace(';', ',') for field in ROUTE_FIELDS
     ]
     return ";".join(values)
 

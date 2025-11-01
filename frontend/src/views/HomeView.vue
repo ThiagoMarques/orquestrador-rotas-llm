@@ -32,6 +32,8 @@ const routeDetailDialog = ref(false)
 const selectedRoute = ref(null)
 const routeDetailLoading = ref(false)
 
+const hasMinimumCities = computed(() => cities.value.length >= 2)
+
 const aiSuggestions = ref([
   {
     from: 'Curitiba',
@@ -41,6 +43,13 @@ const aiSuggestions = ref([
 ])
 
 const sendChatMessage = async () => {
+  if (!hasMinimumCities.value) {
+    snackbar.text = 'Adicione pelo menos duas cidades para planejar uma rota.'
+    snackbar.color = 'warning'
+    snackbar.show = true
+    return
+  }
+
   if (!chatMessage.value.trim()) {
     return
   }
@@ -452,7 +461,15 @@ onMounted(async () => {
       </v-col>
     </v-row>
 
-    <v-row class="mt-8">
+    <v-row v-if="!hasMinimumCities" class="mt-8">
+      <v-col cols="12">
+        <v-alert type="warning" variant="tonal" density="comfortable" border="start">
+          Cadastre pelo menos duas cidades no card "Cidades escolhidas" para planejar rotas com a IA.
+        </v-alert>
+      </v-col>
+    </v-row>
+
+    <v-row class="mt-6">
       <v-col cols="12">
         <v-card class="chat-input" rounded="xl" elevation="2">
           <div class="chat-input__wrapper">
@@ -465,6 +482,7 @@ onMounted(async () => {
               hide-details
               placeholder="Digite sua mensagem..."
               base-color="transparent"
+              :readonly="!hasMinimumCities"
             />
 
             <v-btn
@@ -472,7 +490,7 @@ onMounted(async () => {
               class="chat-input__send"
               rounded="xl"
               :loading="chatLoading"
-              :disabled="!chatMessage.trim() || chatLoading"
+              :disabled="!hasMinimumCities || !chatMessage.trim() || chatLoading"
               @click="sendChatMessage"
             >
               Enviar
