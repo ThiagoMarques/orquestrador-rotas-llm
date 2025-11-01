@@ -70,6 +70,10 @@ class RoutePlanDetail(RoutePlanBase):
         orm_mode = True
 
 
+class RoutePlanBulkDelete(BaseModel):
+    route_ids: list[int] = Field(..., min_items=1, description="Lista de IDs de rotas a remover")
+
+
 class CityBase(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     state: str = Field(min_length=2, max_length=2)

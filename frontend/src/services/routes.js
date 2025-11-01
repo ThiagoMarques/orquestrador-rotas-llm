@@ -73,3 +73,18 @@ export async function downloadRouteCsv(routeId) {
   return response.blob()
 }
 
+export async function deleteRoutes(routeIds) {
+  const response = await fetch(`${API_BASE_URL}/api/routes/`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+    body: JSON.stringify({ route_ids: routeIds }),
+  })
+
+  if (!response.ok) {
+    const detail = await parseError(response)
+    const error = new Error(detail)
+    error.status = response.status
+    throw error
+  }
+}
+

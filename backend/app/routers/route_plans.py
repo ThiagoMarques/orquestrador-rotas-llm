@@ -85,3 +85,25 @@ def download_route_csv(
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
+
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_routes(
+    payload: schemas.RoutePlanBulkDelete,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    routes = (
+        db.query(models.RoutePlan)
+        .filter(models.RoutePlan.user_id == current_user.id)
+        .filter(models.RoutePlan.id.in_(payload.route_ids))
+        .all()
+    )
+
+    if not routes:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhuma rota encontrada para exclusão.")
+
+    for route in routes:
+        db.delete(route)
+
+    db.commit()
+

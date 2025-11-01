@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { createCity, deleteCity, listCities, updateCity } from '../services/cities'
 import { sendGeminiMessage } from '../services/ai'
-import { listRoutes, getRouteById, downloadRouteCsv } from '../services/routes'
+import { listRoutes, getRouteById, downloadRouteCsv, deleteRoutes } from '../services/routes'
 import { getCurrentUser } from '../services/user'
 
 const router = useRouter()
@@ -31,6 +31,8 @@ const routesLoading = ref(true)
 const routeDetailDialog = ref(false)
 const selectedRoute = ref(null)
 const routeDetailLoading = ref(false)
+const selectionMode = ref(false)
+const selectedRouteIds = ref([])
 
 const hasMinimumCities = computed(() => cities.value.length >= 2)
 
@@ -274,6 +276,54 @@ const formatDate = (value) => {
   })
 }
 
+const toggleSelectionMode = () => {
+  selectionMode.value = !selectionMode.value
+  if (!selectionMode.value) {
+    selectedRouteIds.value = []
+  }
+}
+
+const toggleRouteSelection = (routeId) => {
+  if (!selectionMode.value) {
+    return
+  }
+
+  const index = selectedRouteIds.value.indexOf(routeId)
+  if (index >= 0) {
+    selectedRouteIds.value.splice(index, 1)
+  } else {
+    selectedRouteIds.value.push(routeId)
+  }
+}
+
+const removeSelectedRoutes = async () => {
+  if (!selectedRouteIds.value.length) {
+    snackbar.text = 'Selecione ao menos uma rota para excluir.'
+    snackbar.color = 'warning'
+    snackbar.show = true
+    return
+  }
+
+  try {
+    await deleteRoutes(selectedRouteIds.value)
+    snackbar.text = 'Rotas removidas com sucesso.'
+    snackbar.color = 'success'
+    snackbar.show = true
+    selectionMode.value = false
+    selectedRouteIds.value = []
+    await loadRoutes()
+  } catch (error) {
+    if (error.status === 401) {
+      handleAuthError()
+      return
+    }
+
+    snackbar.text = error.message || 'Não foi possível remover as rotas selecionadas.'
+    snackbar.color = 'error'
+    snackbar.show = true
+  }
+}
+
 watch(cityDialog, (isOpen) => {
   if (!isOpen) {
     cityFormRef.value?.resetValidation?.()
@@ -396,12 +446,18 @@ onMounted(async () => {
               v-for="routeItem in routes"
               :key="routeItem.id"
               class="planned-route-item"
-              @click="openRouteDetail(routeItem)"
+              @click="selectionMode ? toggleRouteSelection(routeItem.id) : openRouteDetail(routeItem)"
             >
               <template #prepend>
                 <v-avatar color="primary" variant="tonal" size="36">
                   <v-icon icon="mdi-route-variant" size="22" />
                 </v-avatar>
+                <v-checkbox-btn
+                  v-if="selectionMode"
+                  :model-value="selectedRouteIds.includes(routeItem.id)"
+                  class="ml-2"
+                  @click.stop="toggleRouteSelection(routeItem.id)"
+                />
               </template>
 
               <v-list-item-title>{{ routeItem.itinerary }}</v-list-item-title>
@@ -415,6 +471,25 @@ onMounted(async () => {
             <v-icon icon="mdi-map-search-outline" color="primary" size="32" class="mb-3" />
             <p>Nenhuma rota planejada ainda. Envie uma mensagem no chat para gerar sugestões.</p>
           </div>
+
+          <v-card-actions class="pt-4" v-if="routes.length">
+            <v-btn
+              variant="tonal"
+              color="primary"
+              @click="toggleSelectionMode"
+            >
+              {{ selectionMode ? 'Cancelar seleção' : 'Selecionar rotas' }}
+            </v-btn>
+            <v-btn
+              v-if="selectionMode"
+              color="error"
+              variant="text"
+              :disabled="!selectedRouteIds.length"
+              @click="removeSelectedRoutes"
+            >
+              Remover selecionadas
+            </v-btn>
+          </v-card-actions>
         </v-card>
       </v-col>
 
@@ -800,6 +875,10 @@ onMounted(async () => {
 
 .planned-route-item {
   cursor: pointer;
+}
+
+.planned-route-item:hover {
+  background-color: rgba(59, 130, 246, 0.08);
 }
 
 .route-detail__loading {
