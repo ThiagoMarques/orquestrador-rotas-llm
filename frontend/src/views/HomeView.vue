@@ -906,6 +906,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  padding: 0.25rem 0.35rem;
 }
 
 .route-icon {
