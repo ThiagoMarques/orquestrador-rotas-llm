@@ -456,9 +456,9 @@ onMounted(async () => {
             >
               <template #prepend>
                 <div class="route-prepend">
-                  <v-avatar color="primary" variant="tonal" size="36">
-                    <v-icon icon="mdi-route-variant" size="22" />
-                  </v-avatar>
+                  <div class="route-icon">
+                    <span class="material-icons">map</span>
+                  </div>
                   <button
                     v-if="selectionMode"
                     type="button"
@@ -906,6 +906,21 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.route-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: rgba(59, 130, 246, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1d4ed8;
+}
+
+.route-icon .material-icons {
+  font-size: 22px;
 }
 
 .route-select-icon {
