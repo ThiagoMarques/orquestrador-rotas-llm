@@ -383,7 +383,7 @@ onMounted(async () => {
     </v-row>
 
     <v-row class="mt-4" dense>
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="3" lg="3" xl="3">
         <v-card class="home-card" rounded="lg" elevation="1">
           <v-card-title class="home-card__title">
             <span class="material-icons home-card__icon">location_city</span>
@@ -435,7 +435,7 @@ onMounted(async () => {
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="6" lg="5" xl="5">
         <v-card class="home-card" rounded="lg" elevation="1">
           <v-card-title class="home-card__title">
             <span class="material-icons home-card__icon">route</span>
@@ -505,7 +505,7 @@ onMounted(async () => {
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="3" lg="4" xl="4">
         <v-card class="home-card" rounded="lg" elevation="1">
           <v-card-title class="home-card__title">
             <span class="material-icons home-card__icon">psychology</span>
