@@ -29,15 +29,26 @@ def _ensure_city_role_column() -> None:
         connection.execute(text("ALTER TABLE IF EXISTS cities ALTER COLUMN role SET DEFAULT 'intermediate'"))
         connection.execute(text("UPDATE cities SET role = 'intermediate' WHERE role IS NULL"))
         connection.execute(text("ALTER TABLE IF EXISTS cities ALTER COLUMN role SET NOT NULL"))
-        connection.execute(
+        constraint_exists = connection.execute(
             text(
                 """
-                ALTER TABLE IF EXISTS cities
-                ADD CONSTRAINT IF NOT EXISTS ck_city_role
-                CHECK (role IN ('origin','destination','intermediate'))
+                SELECT 1
+                FROM information_schema.check_constraints
+                WHERE constraint_name = 'ck_city_role'
+                LIMIT 1
                 """
             )
-        )
+        ).scalar()
+        if not constraint_exists:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE cities
+                    ADD CONSTRAINT ck_city_role
+                    CHECK (role IN ('origin','destination','intermediate'))
+                    """
+                )
+            )
         connection.commit()
 
 
