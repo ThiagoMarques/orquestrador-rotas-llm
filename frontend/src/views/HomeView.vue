@@ -398,9 +398,9 @@ onMounted(async () => {
           <v-list v-else-if="cities.length" density="comfortable">
             <v-list-item v-for="city in cities" :key="city.id">
               <template #prepend>
-                <v-avatar color="primary" variant="tonal" size="36">
-                  <v-icon icon="mdi-city-variant-outline" size="22" />
-                </v-avatar>
+                <div class="city-icon">
+                  <span class="material-icons">location_on</span>
+                </div>
               </template>
 
               <v-list-item-title>{{ city.name }}</v-list-item-title>
