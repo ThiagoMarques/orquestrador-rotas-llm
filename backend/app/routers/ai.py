@@ -133,10 +133,14 @@ def chat_with_gemini(
         if not itinerary:
             continue
 
+        parsed_travel_date = _parse_date(route.get("travel_date"))
+        if not parsed_travel_date or parsed_travel_date < date.today():
+            parsed_travel_date = date.today()
+
         model = models.RoutePlan(
             user_id=current_user.id,
             itinerary=itinerary,
-            travel_date=_parse_date(route.get("travel_date")),
+            travel_date=parsed_travel_date,
             distance_km=route.get("distance_km"),
             travel_time=route.get("travel_time"),
             cost_brl=route.get("cost_brl"),
