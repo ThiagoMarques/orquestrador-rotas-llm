@@ -33,6 +33,8 @@ const routeDetailLoading = ref(false)
 const selectionMode = ref(false)
 const selectedRouteIds = ref([])
 const aiRecommendation = ref(null)
+const clearRoutesDialog = ref(false)
+const clearRoutesLoading = ref(false)
 
 const cityRoleLabels = {
   origin: 'Origem',
@@ -397,6 +399,42 @@ const removeSelectedRoutes = async () => {
   }
 }
 
+const openClearRoutesDialog = () => {
+  clearRoutesDialog.value = true
+}
+
+const clearAllRoutes = async () => {
+  if (!routes.value.length) {
+    clearRoutesDialog.value = false
+    return
+  }
+
+  clearRoutesLoading.value = true
+  try {
+    const allIds = routes.value.map((routeItem) => routeItem.id)
+    await deleteRoutes(allIds)
+    snackbar.text = 'Todas as rotas foram removidas.'
+    snackbar.color = 'success'
+    snackbar.show = true
+    selectionMode.value = false
+    selectedRouteIds.value = []
+    aiRecommendation.value = null
+    await loadRoutes()
+  } catch (error) {
+    if (error.status === 401) {
+      handleAuthError()
+      return
+    }
+
+    snackbar.text = error.message || 'Não foi possível limpar as rotas.'
+    snackbar.color = 'error'
+    snackbar.show = true
+  } finally {
+    clearRoutesLoading.value = false
+    clearRoutesDialog.value = false
+  }
+}
+
 watch(cityDialog, (isOpen) => {
   if (!isOpen) {
     cityFormRef.value?.resetValidation?.()
@@ -586,6 +624,16 @@ onMounted(async () => {
               @click="removeSelectedRoutes"
             >
               Remover selecionadas
+            </v-btn>
+            <v-spacer />
+            <v-btn
+              color="error"
+              variant="tonal"
+              prepend-icon="mdi-trash-can"
+              :disabled="routesLoading || !routes.length"
+              @click="openClearRoutesDialog"
+            >
+              Limpar todas
             </v-btn>
           </v-card-actions>
         </v-card>
@@ -833,6 +881,27 @@ onMounted(async () => {
             @click="handleDownloadCsv(selectedRoute.id)"
           >
             Baixar CSV
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="clearRoutesDialog" max-width="440">
+      <v-card>
+        <v-card-title class="text-h6">Limpar rotas planejadas</v-card-title>
+        <v-card-text>
+          <p>
+            Essa ação irá remover todas as rotas planejadas do seu histórico. O processo é irreversível.
+            Deseja continuar?
+          </p>
+        </v-card-text>
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="clearRoutesDialog = false" :disabled="clearRoutesLoading">
+            Cancelar
+          </v-btn>
+          <v-btn color="error" :loading="clearRoutesLoading" @click="clearAllRoutes">
+            Limpar tudo
           </v-btn>
         </v-card-actions>
       </v-card>
