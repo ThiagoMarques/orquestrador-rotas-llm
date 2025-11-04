@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -45,9 +43,7 @@ def login(
             detail="Credenciais inválidas.",
         )
 
-    access_token = create_access_token(
-        subject=user.email, expires_delta=timedelta(minutes=30)
-    )
+    access_token = create_access_token(subject=user.email)
     return schemas.Token(access_token=access_token)
 
 
